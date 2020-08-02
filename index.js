@@ -49,7 +49,7 @@ bot.on('message', message => {
                 .addField("play", "Plays the audio of a youtube video")
                 .addField("skip", "Skip to the next track in the list, if there isn't any it leaves the voice channel")
                 .addField("stop", "Leaves the voice channel")
-                .addField("queque", "Display the queque");
+                .addField("queue", "Display the queue");
                 
                 message.channel.send(embed);
                 break;
@@ -59,13 +59,13 @@ bot.on('message', message => {
                 function play(connection, message) {
                     var server = servers[message.guild.id];
 
-                    server.dispatcher = connection.play(ytdl(server.queque[0], {filter: "audioonly"}));
+                    server.dispatcher = connection.play(ytdl(server.queue[0], {filter: "audioonly"}));
 
-                    server.queque.shift();
+                    server.queue.shift();
 
                     server.dispatcher.on("finish", () => {
                         server.titles.shift();
-                        if(server.queque[0]) {
+                        if(server.queue[0]) {
                             play(connection, message);
                         }
                         else {
@@ -88,13 +88,13 @@ bot.on('message', message => {
                 }
 
                 if(!servers[message.guild.id]) servers[message.guild.id] = {
-                    queque: [],
+                    queue: [],
                     titles: []
                 };
 
                 var server = servers[message.guild.id];
 
-                server.queque.push(args[1]);
+                server.queue.push(args[1]);
                 
                 var title = "";
 
@@ -129,8 +129,8 @@ bot.on('message', message => {
                 var server = servers[message.guild.id];
 
                 if(bot.voice.connections.size==1) {
-                    for(var i=server.queque.length-1;i>=0;i--) {
-                        server.queque.splice(i, 1);
+                    for(var i=server.queue.length-1;i>=0;i--) {
+                        server.queue.splice(i, 1);
                         server.titles.splice(i, 1);
                     }
                     
@@ -140,19 +140,19 @@ bot.on('message', message => {
                 
                 break;
 
-            case "queque":
+            case "queue":
 
                 var server = servers[message.guild.id];
 
                 let songsList = "1 - " + server.titles[0] + " (currently playing)";
 
-                embed.setTitle("Queque (" + server.titles.length + ")");
+                embed.setTitle("queue (" + server.titles.length + ")");
                 
                 for(let i=1;i<server.titles.length;i++) {
                     songsList = songsList.concat("\n" + (i+1).toString() + " - " + server.titles[i]);
                 }
                 
-                embed.addField("Quequed songs:", songsList);
+                embed.addField("queued songs:", songsList);
 
                 message.channel.send(embed);
                 
