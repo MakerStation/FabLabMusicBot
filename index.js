@@ -40,14 +40,16 @@ bot.on('message', async message => {
                 
                 embed.setTitle("Commands (prefix " + prefix + ")")
                 .addField("help", "This message with all the available commands")
-                .addField("play", "Plays the audio of a youtube video")
+                .addField("play/p", "Plays the audio of a youtube video")
                 .addField("skip", "Skip to the next track in the list, if there isn't any it leaves the voice channel")
-                .addField("stop", "Leaves the voice channel")
+                .addField("jump", "Jump to the track n of the second argument")
+                .addField("stop/leave/l/disconnect", "Leaves the voice channel")
                 .addField("queue", "Display the queue");
                 
                 message.channel.send(embed);
                 break;
 
+            case "p":
             case "play":
 
                 function play(connection, message) {
@@ -73,7 +75,7 @@ bot.on('message', async message => {
                 var url = "";
 
                 if(!args[1]) {
-                    argumentMissingError();
+                    argumentMissingError(message);
                     return;
                 }
 
@@ -134,6 +136,33 @@ bot.on('message', async message => {
                 
                 break;
 
+            case "jump":
+
+                var server = servers[message.guild.id];
+
+                if(args[1]==null) {
+                    argumentMissingError(message);
+                }
+
+                if(isNaN(args[1])) {
+                    wrongCommandError(message);
+                }
+
+                if(bot.voice.connections.size==1) {
+                    
+                    for(var i=0;i<parseInt(args[1])-1;i++) {
+                        server.dispatcher.end();
+                        await sleep(500);
+                    }
+
+                    message.react("👌");
+                }
+                
+                break;
+
+            case "leave":
+            case "l":
+            case "disconnect":
             case "stop":
 
                 var server = servers[message.guild.id];
@@ -155,23 +184,21 @@ bot.on('message', async message => {
                 var server = servers[message.guild.id];
 
                 if(server.titles.length == 0) {
-                    embed.setTitle("No song queued");
+                    message.channel.send("No songs queued");
                 }
                 else {
 
-                    let songsList = "1 - " + server.titles[0] + " (currently playing)";
-
-                    embed.setTitle("Queue (" + server.titles.length + ")");
+                    let songsList = "\n1 - " + server.titles[0] + " (currently playing)";
                     
                     for(let i=1;i<server.titles.length;i++) {
                         songsList = songsList.concat("\n" + (i+1).toString() + " - " + server.titles[i]);
                     }
                     
                     embed.addField("Queued songs:", songsList);
+                    message.channel.send("Queued songs:" + songsList);
 
                 }
 
-                message.channel.send(embed);
                 
                 break;
 
