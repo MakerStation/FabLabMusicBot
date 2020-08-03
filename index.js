@@ -14,8 +14,12 @@ function wrongCommandError(message) {
     message.channel.send('The command doesn\'t exist');
 }
 
-function argumentMissingError(message) {
+function missingArgumentError(message) {
     message.channel.send('Missing argument');
+}
+
+function wrongArgumentError(message) {
+    message.channel.send('Wrong argument');
 }
 
 function sleep(ms) {
@@ -75,7 +79,7 @@ bot.on('message', async message => {
                 var url = "";
 
                 if(!args[1]) {
-                    argumentMissingError(message);
+                    missingArgumentError(message);
                     return;
                 }
 
@@ -141,11 +145,13 @@ bot.on('message', async message => {
                 var server = servers[message.guild.id];
 
                 if(args[1]==null) {
-                    argumentMissingError(message);
+                    missingArgumentError(message);
+                    return;
                 }
 
                 if(isNaN(args[1])) {
-                    wrongCommandError(message);
+                    wrongArgumentError(message);
+                    return;
                 }
 
                 if(bot.voice.connections.size==1) {
