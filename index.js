@@ -233,6 +233,8 @@ bot.on('message', async message => {
 
                 var server = servers[message.guild.id];
 
+                server.repeating = false;
+
                 if(bot.voice.connections.size==1) {
                     for(var i=server.queue.length-1;i>=0;i--) {
                         server.queue.splice(i, 1);
