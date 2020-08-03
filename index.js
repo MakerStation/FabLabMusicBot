@@ -76,6 +76,9 @@ bot.on('message', async message => {
                 .addField("play/p", "Plays the audio of a youtube video")
                 .addField("skip", "Skip to the next track in the list, if there isn't any it leaves the voice channel")
                 .addField("jump", "Jump to the track n of the second argument")
+                .addField("repeat", "Toggle track repeating")
+                .addField("pause", "Pause the audio playback")
+                .addField("resume", "Resume the audio playback")
                 .addField("stop/leave/l/disconnect", "Leaves the voice channel")
                 .addField("queue", "Display the queue");
                 
@@ -106,7 +109,7 @@ bot.on('message', async message => {
                     url = args[1];
                 }
 
-                await sleep(5000);
+                await sleep(3000);
                 
                 if(!message.member.voice.channel) {
                     message.channel.send("You must be in a voice channel");
@@ -194,6 +197,35 @@ bot.on('message', async message => {
 
                 break;
 
+            case "pause":
+
+                var server = servers[message.guild.id];
+
+                if(bot.voice.connections.size==1 && !server.dispatcher.paused) {
+                    server.dispatcher.pause();
+                    message.react("⏸️");
+                }
+                else {
+                    message.channel.send("Not possible");
+                }
+
+
+                break;
+
+            case "resume":
+
+                var server = servers[message.guild.id];
+
+                if(bot.voice.connections.size==1 && server.dispatcher.paused) {
+                    server.dispatcher.resume();
+                    message.react("▶️");
+                }
+                else {
+                    message.channel.send("Not possible");
+                }
+
+                break;
+
             case "leave":
             case "l":
             case "disconnect":
@@ -224,6 +256,7 @@ bot.on('message', async message => {
                     let songsList = "";
 
                     if(server.repeating) songsList = "\n1 - " + server.titles[0] + " (repeating)";
+                    else if(server.dispatcher.paused) songsList = "\n1 - " + server.titles[0] + " (paused)";
                     else songsList = "\n1 - " + server.titles[0] + " (currently playing)";
                     
                     for(let i=1;i<server.titles.length;i++) {
@@ -235,7 +268,6 @@ bot.on('message', async message => {
 
                 }
 
-                
                 break;
 
             default:
