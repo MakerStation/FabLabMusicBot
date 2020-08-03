@@ -11,27 +11,16 @@ var servers = {};
 
 function wrongCommandError(message) {
     message.channel.send('The command doesn\'t exist');
-    /*
-    setTimeout(function() {
-        message.channel.send('!clear 3');
-    }, 5000);*/
 }
 
 function argumentMissingError(message) {
     message.channel.send('Missing argument');
-    /*
-    setTimeout(function() {
-        message.channel.send('!clear 3');
-    }, 5000);*/
 }
 
 bot.on('ready', async () => {
     console.log('Bot online');
 	bot.user.setActivity(prefix + 'help', { type: 'PLAYING' })
         .catch(console.error);
-        
-    //var channelTest = bot.channels.find(channel => channel.id === "732992314863124659");
-    //channelTest.send("Test");
 });
 
 bot.on('message', message => {
@@ -144,15 +133,22 @@ bot.on('message', message => {
 
                 var server = servers[message.guild.id];
 
-                let songsList = "1 - " + server.titles[0] + " (currently playing)";
-
-                embed.setTitle("queue (" + server.titles.length + ")");
-                
-                for(let i=1;i<server.titles.length;i++) {
-                    songsList = songsList.concat("\n" + (i+1).toString() + " - " + server.titles[i]);
+                if(server.titles.length == 0) {
+                    embed.setTitle("No song queued");
                 }
-                
-                embed.addField("queued songs:", songsList);
+                else {
+
+                    let songsList = "1 - " + server.titles[0] + " (currently playing)";
+
+                    embed.setTitle("Queue (" + server.titles.length + ")");
+                    
+                    for(let i=1;i<server.titles.length;i++) {
+                        songsList = songsList.concat("\n" + (i+1).toString() + " - " + server.titles[i]);
+                    }
+                    
+                    embed.addField("Queued songs:", songsList);
+
+                }
 
                 message.channel.send(embed);
                 
