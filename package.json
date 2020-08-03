@@ -12,6 +12,7 @@
     "discord.js": "^12.2.0",
     "nodemon": "^2.0.4",
     "opusscript": "0.0.7",
+    "yt-search": "^2.1.8",
     "ytdl-core": "^3.2.0"
   }
 }

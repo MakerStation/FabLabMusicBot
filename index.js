@@ -1,5 +1,6 @@
 const Discord = require("discord.js");
 const ytdl = require("ytdl-core");
+const yts = require("yt-search");
 
 const token = require("./token.json").token;
 
@@ -17,13 +18,17 @@ function argumentMissingError(message) {
     message.channel.send('Missing argument');
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 bot.on('ready', async () => {
     console.log('Bot online');
 	bot.user.setActivity(prefix + 'help', { type: 'PLAYING' })
         .catch(console.error);
 });
 
-bot.on('message', message => {
+bot.on('message', async message => {
 
     if(message.content.charAt(0) == prefix) {
 
@@ -65,11 +70,27 @@ bot.on('message', message => {
                 }
 
                 var re = /(?:https?:\/\/)?(?:(?:www\.|m.)?youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9-_]{11})/;
+                var url = "";
 
-                if(!args[1] || !re.test(args[1])) {
-                    message.channel.send("No valid youtube link provided");
+                if(!args[1]) {
+                    argumentMissingError();
                     return;
                 }
+
+                if(!re.test(args[1])) {
+
+                    var name = args.slice(1, args.length).join(" ");
+
+                    yts(name, function (err, r) {
+                        const videos = r.videos
+                        url = videos[0].url;
+                    });
+                }
+                else {
+                    url = args[1];
+                }
+
+                await sleep(5000);
                 
                 if(!message.member.voice.channel) {
                     message.channel.send("You must be in a voice channel");
@@ -83,11 +104,11 @@ bot.on('message', message => {
 
                 var server = servers[message.guild.id];
 
-                server.queue.push(args[1]);
+                server.queue.push(url);
                 
                 var title = "";
 
-                ytdl.getBasicInfo (args[1], async (err, info) => {
+                ytdl.getBasicInfo (url, async (err, info) => {
                     title = await info.videoDetails.title;
                     
                     server.titles.push(title);
