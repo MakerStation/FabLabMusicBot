@@ -26,6 +26,35 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function play(connection, message) {
+    var server = servers[message.guild.id];
+
+    if(server.repeating) {
+        server.dispatcher = connection.play(ytdl(server.currentlyPlaying, {filter: "audioonly"}));
+    }
+    else {
+        server.dispatcher = connection.play(ytdl(server.queue[0], {filter: "audioonly"}));
+        server.currentlyPlaying = server.queue[0];
+        server.queue.shift();
+    }
+
+    server.dispatcher.on("finish", () => {
+        if(server.repeating) {
+            play(connection, message);
+        }
+        else {
+            server.titles.shift();
+            if(server.queue[0]) {
+                play(connection, message);
+            }
+            else {
+                connection.disconnect();
+            }
+        }
+
+    });
+}
+
 bot.on('ready', async () => {
     console.log('Bot online');
 	bot.user.setActivity(prefix + 'help', { type: 'PLAYING' })
@@ -55,25 +84,6 @@ bot.on('message', async message => {
 
             case "p":
             case "play":
-
-                function play(connection, message) {
-                    var server = servers[message.guild.id];
-
-                    server.dispatcher = connection.play(ytdl(server.queue[0], {filter: "audioonly"}));
-
-                    server.queue.shift();
-
-                    server.dispatcher.on("finish", () => {
-                        server.titles.shift();
-                        if(server.queue[0]) {
-                            play(connection, message);
-                        }
-                        else {
-                            connection.disconnect();
-                        }
-
-                    });
-                }
 
                 var re = /(?:https?:\/\/)?(?:(?:www\.|m.)?youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9-_]{11})/;
                 var url = "";
@@ -105,7 +115,9 @@ bot.on('message', async message => {
 
                 if(!servers[message.guild.id]) servers[message.guild.id] = {
                     queue: [],
-                    titles: []
+                    titles: [],
+                    currentlyPlaying: "",
+                    repeating: false
                 };
 
                 var server = servers[message.guild.id];
@@ -166,6 +178,22 @@ bot.on('message', async message => {
                 
                 break;
 
+            case "repeat":
+
+                var server = servers[message.guild.id];
+
+                if(server.repeating) {
+                    server.repeating = false;
+                    message.react("▶️");
+                }
+                else {
+                    server.repeating = true;
+                    message.react("🔁");
+                }
+
+
+                break;
+
             case "leave":
             case "l":
             case "disconnect":
@@ -180,7 +208,6 @@ bot.on('message', async message => {
                     }
                     
                     server.dispatcher.end();
-                    message.react("👌");
                 }
                 
                 break;
@@ -194,7 +221,10 @@ bot.on('message', async message => {
                 }
                 else {
 
-                    let songsList = "\n1 - " + server.titles[0] + " (currently playing)";
+                    let songsList = "";
+
+                    if(server.repeating) songsList = "\n1 - " + server.titles[0] + " (repeating)";
+                    else songsList = "\n1 - " + server.titles[0] + " (currently playing)";
                     
                     for(let i=1;i<server.titles.length;i++) {
                         songsList = songsList.concat("\n" + (i+1).toString() + " - " + server.titles[i]);
