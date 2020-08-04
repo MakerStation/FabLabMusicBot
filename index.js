@@ -129,9 +129,9 @@ bot.on('message', async message => {
                 
                 var title = "";
 
-                ytdl.getBasicInfo (url, async (err, info) => {
-                    title = await info.videoDetails.title;
-                    
+                ytdl(url)
+                .on('info', (info) => {
+                    title = info.videoDetails.title;
                     server.titles.push(title);
                 });
                 
