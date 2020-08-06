@@ -1,284 +1,133 @@
-const Discord = require("discord.js");
-const ytdl = require("ytdl-core");
-const yts = require("yt-search");
-
-const token = require("./token.json").token;
-
-const prefix = require("./prefix.json").prefix;
-
+const Discord = require('discord.js');
 const bot = new Discord.Client();
 
-var servers = {};
+const ytdl = require('ytdl-core');
+const yts = require('yt-search');
 
-function wrongCommandError(message) {
-    message.channel.send('The command doesn\'t exist');
-}
+const requires = (...modules) => modules.map(module => require(module));
+const [{ help }, { play }, { skip }, { jump }, { repeat }, { pause }, { resume }, { stop }, { queue }] = requires('./commands/help', './commands/play', './commands/skip', './commands/jump', './commands/repeat', './commands/pause', './commands/resume', './commands/stop', './commands/queue');
 
-function missingArgumentError(message) {
-    message.channel.send('Missing argument');
-}
+const {
+	token,
+	spClientId,
+	spClientSecret,
+} = require('./token.json');
 
-function wrongArgumentError(message) {
-    message.channel.send('Wrong argument');
-}
+const prefix = require('./prefix.json').prefix;
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
+const {
+	wrongCommand,
+} = require('./functions');
 
-function play(connection, message) {
-    var server = servers[message.guild.id];
-
-    if(server.repeating) {
-        server.dispatcher = connection.play(ytdl(server.currentlyPlaying, {filter: "audioonly"}));
-    }
-    else {
-        server.dispatcher = connection.play(ytdl(server.queue[0], {filter: "audioonly"}));
-        server.currentlyPlaying = server.queue[0];
-        server.queue.shift();
-    }
-
-    server.dispatcher.on("finish", () => {
-        if(server.repeating) {
-            play(connection, message);
-        }
-        else {
-            server.titles.shift();
-            if(server.queue[0]) {
-                play(connection, message);
-            }
-            else {
-                connection.disconnect();
-            }
-        }
-
-    });
-}
-
-bot.on('ready', async () => {
-    console.log('Bot online');
-	bot.user.setActivity(prefix + 'help', { type: 'PLAYING' })
-        .catch(console.error);
+const SpotifyWebApi = require('spotify-web-api-node');
+const spotifyApi = new SpotifyWebApi({
+	clientId: spClientId,
+	clientSecret: spClientSecret,
 });
 
-bot.on('message', async message => {
+spotifyApi.clientCredentialsGrant()
+	.then(function(data) {
 
-    if(message.content.charAt(0) == prefix) {
+		spotifyApi.setAccessToken(data.body['access_token']);
 
-        let args = message.content.substring(prefix.length).split(" ");
-        let embed = new Discord.MessageEmbed();
+	}, function(err) {
+		console.log('Something went wrong!', err);
+	});
 
-        switch(args[0]) {
-            case "help":
-                
-                embed.setTitle("Commands (prefix " + prefix + ")")
-                .addField("help", "This message with all the available commands")
-                .addField("play/p", "Plays the audio of a youtube video")
-                .addField("skip", "Skip to the next track in the list, if there isn't any it leaves the voice channel")
-                .addField("jump", "Jump to the track n of the second argument")
-                .addField("repeat", "Toggle track repeating")
-                .addField("pause", "Pause the audio playback")
-                .addField("resume", "Resume the audio playback")
-                .addField("stop/leave/l/disconnect", "Leaves the voice channel")
-                .addField("queue", "Display the queue");
-                
-                message.channel.send(embed);
-                break;
+const servers = {};
 
-            case "p":
-            case "play":
+bot.on('ready', async () => {
+	console.log('Bot online');
+	bot.user.setActivity(prefix + 'help', {
+		type: 'PLAYING',
+	})
+		.catch(console.error);
+});
 
-                var re = /(?:https?:\/\/)?(?:(?:www\.|m.)?youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9-_]{11})/;
-                var url = "";
+bot.on('message', async (message) => {
 
-                if(!args[1]) {
-                    missingArgumentError(message);
-                    return;
-                }
+	if (!servers[message.guild.id]) {
+		servers[message.guild.id] = {
+			queue: [],
+			titles: [],
+			currentlyPlaying: '',
+			repeating: false,
+		};
+	}
 
-                if(!re.test(args[1])) {
+	if (message.content.startsWith(prefix)) {
 
-                    var name = args.slice(1, args.length).join(" ");
+		const args = message.content.substring(prefix.length).split(' ');
+		const embed = new Discord.MessageEmbed();
+		const server = servers[message.guild.id];
 
-                    yts(name, function (err, r) {
-                        const videos = r.videos
-                        url = videos[0].url;
-                    });
-                }
-                else {
-                    url = args[1];
-                }
+		switch (args[0]) {
+		case 'help':
 
-                await sleep(3000);
-                
-                if(!message.member.voice.channel) {
-                    message.channel.send("You must be in a voice channel");
-                    return;
-                }
+			help(message, embed, prefix);
 
-                if(!servers[message.guild.id]) servers[message.guild.id] = {
-                    queue: [],
-                    titles: [],
-                    currentlyPlaying: "",
-                    repeating: false
-                };
+			break;
 
-                var server = servers[message.guild.id];
+		case 'p':
+		case 'play':
 
-                server.queue.push(url);
-                
-                var title = "";
+			play(message, server, bot, args, ytdl, yts, spotifyApi);
 
-                ytdl(url)
-                .on('info', (info) => {
-                    title = info.videoDetails.title;
-                    server.titles.push(title);
-                });
-                
-                if(bot.voice.connections.size==0) message.member.voice.channel.join().then(connection => {
-                    play(connection, message);
-                })
-                message.react("👌");
+			break;
 
-                break;
+		case 'skip':
 
-            case "skip":
+			skip(message, server, bot);
 
-                var server = servers[message.guild.id];
+			break;
 
-                if(bot.voice.connections.size==1) {
-                    
-                    server.dispatcher.end();
+		case 'jump':
 
-                    message.react("👌");
-                }
-                
-                break;
+			jump(message, server, bot, args);
 
-            case "jump":
+			break;
 
-                var server = servers[message.guild.id];
+		case 'repeat':
 
-                if(args[1]==null) {
-                    missingArgumentError(message);
-                    return;
-                }
+			repeat(message, server);
 
-                if(isNaN(args[1])) {
-                    wrongArgumentError(message);
-                    return;
-                }
+			break;
 
-                if(bot.voice.connections.size==1) {
-                    
-                    for(var i=0;i<parseInt(args[1])-1;i++) {
-                        server.dispatcher.end();
-                        await sleep(500);
-                    }
+		case 'pause':
 
-                    message.react("👌");
-                }
-                
-                break;
+			pause(message, server, bot);
 
-            case "repeat":
+			break;
 
-                var server = servers[message.guild.id];
+		case 'resume':
 
-                if(server.repeating) {
-                    server.repeating = false;
-                    message.react("▶️");
-                }
-                else {
-                    server.repeating = true;
-                    message.react("🔁");
-                }
+			resume(message, server, bot);
 
+			break;
 
-                break;
+		case 'leave':
+		case 'l':
+		case 'disconnect':
+		case 'stop':
 
-            case "pause":
+			stop(message, server, bot);
 
-                var server = servers[message.guild.id];
+			break;
 
-                if(bot.voice.connections.size==1 && !server.dispatcher.paused) {
-                    server.dispatcher.pause();
-                    message.react("⏸️");
-                }
-                else {
-                    message.channel.send("Not possible");
-                }
+		case 'queue':
 
+			queue(message, server);
 
-                break;
+			break;
 
-            case "resume":
+		default:
 
-                var server = servers[message.guild.id];
+			wrongCommand(message);
 
-                if(bot.voice.connections.size==1 && server.dispatcher.paused) {
-                    server.dispatcher.resume();
-                    message.react("▶️");
-                }
-                else {
-                    message.channel.send("Not possible");
-                }
+			break;
+		}
 
-                break;
-
-            case "leave":
-            case "l":
-            case "disconnect":
-            case "stop":
-
-                var server = servers[message.guild.id];
-
-                server.repeating = false;
-
-                if(bot.voice.connections.size==1) {
-                    for(var i=server.queue.length-1;i>=0;i--) {
-                        server.queue.splice(i, 1);
-                        server.titles.splice(i, 1);
-                    }
-                    
-                    server.dispatcher.end();
-                }
-                
-                break;
-
-            case "queue":
-
-                var server = servers[message.guild.id];
-
-                if(server.titles.length == 0) {
-                    message.channel.send("No songs queued");
-                }
-                else {
-
-                    let songsList = "";
-
-                    if(server.repeating) songsList = "\n1 - " + server.titles[0] + " (repeating)";
-                    else if(server.dispatcher.paused) songsList = "\n1 - " + server.titles[0] + " (paused)";
-                    else songsList = "\n1 - " + server.titles[0] + " (currently playing)";
-                    
-                    for(let i=1;i<server.titles.length;i++) {
-                        songsList = songsList.concat("\n" + (i+1).toString() + " - " + server.titles[i]);
-                    }
-                    
-                    embed.addField("Queued songs:", songsList);
-                    message.channel.send("Queued songs:" + songsList);
-
-                }
-
-                break;
-
-            default:
-                wrongCommandError(message);
-                
-                break;
-        }
-
-    }
+	}
 
 });
 
