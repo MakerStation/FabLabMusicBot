@@ -58,6 +58,7 @@ const playFromUrl = async (message, server, bot, ytdl, url) => {
 	await ytdl(url)
 		.on('info', (info) => {
 			title = info.videoDetails.title;
+			server.queue.push(url);
 			server.titles.push(title);
 			playUrl(message, server, bot, ytdl);
 		});
@@ -70,6 +71,7 @@ const playUrl = (message, server, bot, ytdl) => {
 			playTrack(connection, message, server, ytdl);
 		});
 	}
+	message.react('👌')
 
 };
 
